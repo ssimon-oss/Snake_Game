@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Cyber Snake</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --grid-color: rgba(255, 255, 255, 0.04);
+            --snake-head: #00ffcc;
+            --snake-body: #00b386;
+            --food-color: #ff0055;
+            --accent-glow: rgba(0, 255, 204, 0.4);
+            --font-game: 'Orbitron', sans-serif;
+            --font-ui: 'Rajdhani', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-color);
+            color: #ffffff;
+            overflow-x: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-orbitron { font-family: var(--font-game); }
+        
+        /* Glassmorphism panel styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(0, 255, 204, 0.6);
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .glass-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Dynamic glow effects */
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.7), 0 0 20px rgba(0, 255, 204, 0.4);
+        }
+
+        .neon-text-magenta {
+            text-shadow: 0 0 8px rgba(255, 0, 128, 0.7), 0 0 20px rgba(255, 0, 128, 0.4);
+        }
+
+        .neon-border {
+            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 15px var(--accent-glow);
+        }
+
+        /* Pulse Animations */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.03); }
+        }
+
+        .animate-pulse-glow {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        /* Canvas Container Aspect Ratio */
+        .game-canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 1 / 1;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+        }
+
+        /* D-Pad controls for mobile */
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            touch-action: manipulation;
+        }
+
+        .dpad-btn:active {
+            background: rgba(0, 255, 204, 0.3);
+            border-color: #00ffcc;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 204, 0.3);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-6 bg-slate-950 text-slate-100">
+
+    <!-- Top Header / Bar -->
+    <header class="w-full max-w-4xl flex justify-between items-center mb-3 sm:mb-6 glass-panel px-4 py-3 rounded-2xl">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-300 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-teal-500/30">
+                <i class="fa-solid font-bold fa-staff-snake text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-emerald-400 to-cyan-400">
+                    CYBER<span class="text-pink-500">SNAKE</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-semibold tracking-widest uppercase">Arcade Edition v2.5</p>
+            </div>
+        </div>
+
+        <!-- Controls / Actions -->
+        <div class="flex items-center space-x-2">
+            <button id="audio-toggle-btn" class="glass-btn p-2.5 rounded-xl text-teal-300 hover:text-white" title="Toggle Sound">
+                <i id="audio-icon" class="fa-solid fa-volume-high text-lg"></i>
+            </button>
+            <button id="theme-btn" class="glass-btn p-2.5 rounded-xl text-teal-300 hover:text-white" title="Change Theme">
+                <i class="fa-solid fa-palette text-lg"></i>
+            </button>
+            <button id="pause-btn" class="glass-btn p-2.5 rounded-xl text-amber-400 hover:text-amber-300" title="Pause Game">
+                <i class="fa-solid fa-pause text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="w-full max-w-4xl flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 my-auto">
+
+        <!-- Left Dashboard / Stats Bar -->
+        <div class="w-full lg:w-64 flex flex-row lg:flex-col gap-3 justify-between">
+            <!-- Score Box -->
+            <div class="glass-panel p-4 rounded-2xl flex-1 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 opacity-10 text-emerald-400 text-6xl font-black">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div>
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">Current Score</span>
+                    <div id="score-display" class="text-3xl sm:text-4xl font-black font-orbitron text-teal-300 mt-1 neon-text-cyan">0</div>
+                </div>
+                <div class="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                    <span>Multiplier</span>
+                    <span id="multiplier-display" class="font-bold text-amber-400 font-orbitron">1x</span>
+                </div>
+            </div>
+
+            <!-- High Score Box -->
+            <div class="glass-panel p-4 rounded-2xl flex-1 flex flex-col justify-between relative overflow-hidden">
+                <div>
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">Best Record</span>
+                    <div id="highscore-display" class="text-3xl sm:text-4xl font-black font-orbitron text-amber-400 mt-1">0</div>
+                </div>
+                <div class="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                    <span>Level</span>
+                    <span id="level-display" class="font-bold text-purple-400 font-orbitron">1</span>
+                </div>
+            </div>
+
+            <!-- Active Powerup Indicator Box -->
+            <div class="hidden lg:block glass-panel p-4 rounded-2xl">
+                <span class="text-xs uppercase tracking-wider text-slate-400 font-bold block mb-2">Active Buffs</span>
+                <div id="active-buffs-list" class="space-y-2 min-h-[60px] flex flex-col justify-center">
+                    <span class="text-xs text-slate-500 italic">No active power-ups</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Game Board & Overlays -->
+        <div class="game-canvas-wrapper glass-panel rounded-2xl p-2 sm:p-3 relative border border-slate-800 shadow-2xl flex items-center justify-center">
+            
+            <canvas id="game-canvas" width="600" height="600"></canvas>
+
+            <!-- START SCREEN OVERLAY -->
+            <div id="start-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-slate-950/85 rounded-2xl backdrop-blur-md text-center">
+                <div class="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-tr from-teal-400 to-emerald-500 flex items-center justify-center text-slate-950 text-3xl shadow-lg shadow-teal-500/40 animate-pulse-glow">
+                    <i class="fa-solid fa-play"></i>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-black font-orbitron text-white mb-2">READY TO SLITHER?</h2>
+                <p class="text-sm text-slate-300 max-w-xs mb-6 font-medium">Collect glowing energy orbs, grab rare power-ups, and avoid hitting the walls or your own tail!</p>
+                
+                <!-- Game Mode Selector -->
+                <div class="flex gap-2 mb-6 w-full max-w-xs">
+                    <button class="mode-select-btn active flex-1 py-2 px-3 rounded-xl border text-xs font-bold font-orbitron transition-all bg-teal-500/20 border-teal-400 text-teal-300" data-mode="classic">CLASSIC</button>
+                    <button class="mode-select-btn flex-1 py-2 px-3 rounded-xl border text-xs font-bold font-orbitron transition-all bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white" data-mode="walls">PORTALS</button>
+                    <button class="mode-select-btn flex-1 py-2 px-3 rounded-xl border text-xs font-bold font-orbitron transition-all bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white" data-mode="speed">SPEED RUN</button>
+                </div>
+
+                <button id="start-btn" class="w-full max-w-xs py-3.5 px-6 rounded-xl font-orbitron font-extrabold text-slate-950 bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 shadow-lg shadow-teal-500/30 text-lg transition-all transform hover:scale-105 active:scale-95">
+                    START GAME
+                </button>
+            </div>
+
+            <!-- PAUSE SCREEN OVERLAY -->
+            <div id="pause-overlay" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-slate-950/90 rounded-2xl backdrop-blur-md text-center">
+                <i class="fa-solid fa-circle-pause text-5xl text-amber-400 mb-4 animate-bounce"></i>
+                <h2 class="text-3xl font-black font-orbitron text-white mb-2">GAME PAUSED</h2>
+                <p class="text-sm text-slate-400 mb-6">Take a breather! Press Space or click Resume to continue.</p>
+                <button id="resume-btn" class="w-full max-w-xs py-3 px-6 rounded-xl font-orbitron font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-400/20 text-base transition-all">
+                    RESUME PLAY
+                </button>
+            </div>
+
+            <!-- GAME OVER OVERLAY -->
+            <div id="gameover-overlay" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-slate-950/90 rounded-2xl backdrop-blur-lg text-center">
+                <div class="w-16 h-16 mb-3 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-500 text-2xl shadow-lg shadow-red-500/20">
+                    <i class="fa-solid fa-skull"></i>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-black font-orbitron text-red-500 mb-1 neon-text-magenta">SYSTEM CRASH</h2>
+                <p class="text-xs text-slate-400 mb-4 uppercase tracking-widest font-semibold">Game Over</p>
+
+                <!-- Final Stats Card -->
+                <div class="w-full max-w-xs glass-panel p-4 rounded-xl mb-6 space-y-2 border border-slate-800">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400">Final Score:</span>
+                        <span id="final-score" class="font-orbitron font-extrabold text-teal-300 text-xl">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400">Length Reached:</span>
+                        <span id="final-length" class="font-orbitron font-bold text-slate-200">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400">Food Eaten:</span>
+                        <span id="final-apples" class="font-orbitron font-bold text-emerald-400">0</span>
+                    </div>
+                    <div id="new-highscore-badge" class="hidden pt-2 border-t border-slate-700 text-amber-400 font-bold text-xs font-orbitron animate-pulse">
+                        <i class="fa-solid fa-crown mr-1"></i> NEW HIGH SCORE!
+                    </div>
+                </div>
+
+                <div class="flex gap-3 w-full max-w-xs">
+                    <button id="restart-btn" class="flex-1 py-3 px-4 rounded-xl font-orbitron font-extrabold text-slate-950 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 shadow-lg shadow-teal-500/30 text-sm transition-all">
+                        TRY AGAIN
+                    </button>
+                    <button id="share-btn" class="glass-btn px-4 rounded-xl text-slate-300 hover:text-white text-sm font-semibold" title="Copy Stats">
+                        <i class="fa-solid fa-share-nodes"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right / Bottom Powerups Legend -->
+        <div class="w-full lg:w-64 glass-panel p-4 rounded-2xl flex flex-col justify-between">
+            <h3 class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3 flex items-center justify-between">
+                <span>Power-up Guide</span>
+                <i class="fa-solid fa-bolt text-amber-400"></i>
+            </h3>
+            <div class="space-y-2.5 text-xs">
+                <div class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span class="w-3.5 h-3.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50 flex-shrink-0"></span>
+                    <div class="text-slate-300"><strong class="text-slate-100">Apple:</strong> +10 Score, grow body</div>
+                </div>
+                <div class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span class="w-3.5 h-3.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50 flex-shrink-0"></span>
+                    <div class="text-slate-300"><strong class="text-amber-400">Gold Orb:</strong> +30 Score & bonus</div>
+                </div>
+                <div class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span class="w-3.5 h-3.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50 flex-shrink-0"></span>
+                    <div class="text-slate-300"><strong class="text-cyan-400">Lightning:</strong> 2x Multiplier speed</div>
+                </div>
+                <div class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span class="w-3.5 h-3.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500/50 flex-shrink-0"></span>
+                    <div class="text-slate-300"><strong class="text-purple-400">Ghost Mode:</strong> Wall pass capability</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Mobile Touch D-Pad -->
+    <div class="mt-4 mb-2 lg:hidden flex flex-col items-center justify-center">
+        <div class="grid grid-cols-3 gap-2 w-48 h-48">
+            <div></div>
+            <button id="btn-up" class="dpad-btn rounded-2xl flex items-center justify-center text-teal-300 text-2xl active:scale-95 transition-transform" aria-label="Up">
+                <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <div></div>
+            <button id="btn-left" class="dpad-btn rounded-2xl flex items-center justify-center text-teal-300 text-2xl active:scale-95 transition-transform" aria-label="Left">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="flex items-center justify-center">
+                <div class="w-4 h-4 rounded-full bg-teal-500/30 border border-teal-500/50"></div>
+            </div>
+            <button id="btn-right" class="dpad-btn rounded-2xl flex items-center justify-center text-teal-300 text-2xl active:scale-95 transition-transform" aria-label="Right">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            <div></div>
+            <button id="btn-down" class="dpad-btn rounded-2xl flex items-center justify-center text-teal-300 text-2xl active:scale-95 transition-transform" aria-label="Down">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <div></div>
+        </div>
+    </div>
+
+    <!-- Footer Controls Bar -->
+    <footer class="w-full max-w-4xl text-center py-3 text-xs text-slate-500 font-semibold flex flex-col sm:flex-row justify-between items-center gap-2">
+        <div>Use <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300">Arrow Keys</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300">WASD</kbd> to steer. <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300">SPACE</kbd> to Pause.</div>
+        <div>Cyber Snake &copy; 2026. Designed for fluid play.</div>
+    </footer>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 glass-panel px-4 py-3 rounded-xl border border-teal-500/40 text-teal-300 text-xs font-bold font-orbitron transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-2 shadow-xl">
+        <i class="fa-solid fa-circle-info"></i>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Canvas & Context Setup
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Grid Constants
+        const GRID_SIZE = 20; // 20x20 cells
+        let CELL_SIZE = canvas.width / GRID_SIZE;
+
+        // Sound Effects Engine using Web Audio API
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playEatSound(isGold = false) {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = isGold ? 'triangle' : 'sine';
+                
+                const now = this.ctx.currentTime;
+                osc.frequency.setValueAtTime(isGold ? 523.25 : 300, now); // C5 or 300Hz
+                osc.frequency.exponentialRampToValueAtTime(isGold ? 1046.5 : 600, now + 0.15); // C6 or 600Hz
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playPowerupSound() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                [400, 600, 800, 1200].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+                    gain.gain.setValueAtTime(0.1, now + idx * 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.05 + 0.1);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now + idx * 0.05);
+                    osc.stop(now + idx * 0.05 + 0.1);
+                });
+            }
+
+            playGameOverSound() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+
+            playTurnSound() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.setValueAtTime(220, now + 0.03);
+
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        // Theme Configurations
+        const THEMES = [
+            {
+                name: 'Neon Cyber',
+                bg: '#0b0f19',
+                grid: 'rgba(0, 255, 204, 0.05)',
+                head: '#00ffcc',
+                bodyGradient: ['#00ffcc', '#0099ff'],
+                food: '#ff0055',
+                goldFood: '#ffcc00',
+                powerupSpeed: '#00e5ff',
+                powerupGhost: '#a855f7',
+                accentGlow: 'rgba(0, 255, 204, 0.5)'
+            },
+            {
+                name: 'Retro Arcade',
+                bg: '#180828',
+                grid: 'rgba(255, 0, 128, 0.07)',
+                head: '#ff007f',
+                bodyGradient: ['#ff007f', '#7928ca'],
+                food: '#00ff66',
+                goldFood: '#ffee00',
+                powerupSpeed: '#00f0ff',
+                powerupGhost: '#d8b4fe',
+                accentGlow: 'rgba(255, 0, 128, 0.5)'
+            },
+            {
+                name: 'Cozy Forest',
+                bg: '#081c15',
+                grid: 'rgba(82, 183, 136, 0.06)',
+                head: '#52b788',
+                bodyGradient: ['#74c69d', '#2d6a4f'],
+                food: '#ff4d6d',
+                goldFood: '#ffb703',
+                powerupSpeed: '#80ed99',
+                powerupGhost: '#c77dff',
+                accentGlow: 'rgba(82, 183, 136, 0.5)'
+            },
+            {
+                name: 'Synthwave',
+                bg: '#120024',
+                grid: 'rgba(255, 110, 199, 0.08)',
+                head: '#ff7700',
+                bodyGradient: ['#ff7700', '#ff0055'],
+                food: '#00ffff',
+                goldFood: '#ffe600',
+                powerupSpeed: '#ff00aa',
+                powerupGhost: '#9d4edd',
+                accentGlow: 'rgba(255, 119, 0, 0.5)'
+            }
+        ];
+
+        let currentThemeIndex = 0;
+
+        // Game State Variables
+        let gameMode = 'classic'; // 'classic', 'walls', 'speed'
+        let isRunning = false;
+        let isPaused = false;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('cybersnake_highscore') || '0');
+        let applesEaten = 0;
+        let level = 1;
+        let multiplier = 1;
+
+        // Snake Data
+        let snake = [];
+        let direction = { x: 1, y: 0 };
+        let nextDirection = { x: 1, y: 0 };
+
+        // Food & Powerups
+        let food = { x: 0, y: 0, type: 'apple' }; // 'apple', 'gold', 'speed', 'ghost'
+        let powerupTimer = null;
+        let activeBuffs = {
+            speed: 0, // remaining ticks/ms
+            ghost: 0
+        };
+
+        // Timing & Speed
+        let gameLoopTimeout = null;
+        let baseSpeed = 120; // ms per frame tick
+        let currentSpeed = 120;
+
+        // Particle System for visual feedback
+        let particles = [];
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.radius = Math.random() * 3 + 2;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw(context) {
+                context.save();
+                context.globalAlpha = Math.max(0, this.alpha);
+                context.fillStyle = this.color;
+                context.beginPath();
+                context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                context.fill();
+                context.restore();
+            }
+        }
+
+        function createParticleBurst(gridX, gridY, color, count = 15) {
+            const centerX = (gridX + 0.5) * CELL_SIZE;
+            const centerY = (gridY + 0.5) * CELL_SIZE;
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(centerX, centerY, color));
+            }
+        }
+
+        function initGame() {
+            // Center initial snake
+            const startX = Math.floor(GRID_SIZE / 2);
+            const startY = Math.floor(GRID_SIZE / 2);
+
+            snake = [
+                { x: startX, y: startY },
+                { x: startX - 1, y: startY },
+                { x: startX - 2, y: startY }
+            ];
+
+            direction = { x: 1, y: 0 };
+            nextDirection = { x: 1, y: 0 };
+            score = 0;
+            applesEaten = 0;
+            level = 1;
+            multiplier = 1;
+            baseSpeed = gameMode === 'speed' ? 90 : 120;
+            currentSpeed = baseSpeed;
+
+            activeBuffs = { speed: 0, ghost: 0 };
+
+            updateScoreUI();
+            spawnFood();
+            particles = [];
+        }
+
+        function spawnFood() {
+            let valid = false;
+            let newX, newY;
+
+            while (!valid) {
+                newX = Math.floor(Math.random() * GRID_SIZE);
+                newY = Math.floor(Math.random() * GRID_SIZE);
+
+                // Ensure food does not spawn inside snake
+                valid = !snake.some(segment => segment.x === newX && segment.y === newY);
+            }
+
+            // Decide food type based on probabilities
+            const rand = Math.random();
+            let type = 'apple';
+
+            if (rand < 0.15) {
+                type = 'gold'; // 15% chance
+            } else if (rand < 0.25) {
+                type = 'speed'; // 10% chance
+            } else if (rand < 0.35) {
+                type = 'ghost'; // 10% chance
+            }
+
+            food = { x: newX, y: newY, type: type };
+        }
+
+        function gameTick() {
+            if (!isRunning || isPaused) return;
+
+            // Apply buffered direction change
+            direction = { ...nextDirection };
+
+            // Calculate next head position
+            let headX = snake[0].x + direction.x;
+            let headY = snake[0].y + direction.y;
+
+            // Handle Wall Collisions according to game mode or Ghost active buff
+            const isGhostActive = activeBuffs.ghost > 0;
+
+            if (gameMode === 'walls' || isGhostActive) {
+                // Wrap around edges
+                if (headX < 0) headX = GRID_SIZE - 1;
+                if (headX >= GRID_SIZE) headX = 0;
+                if (headY < 0) headY = GRID_SIZE - 1;
+                if (headY >= GRID_SIZE) headY = 0;
+            } else {
+                // Classic mode wall collision
+                if (headX < 0 || headX >= GRID_SIZE || headY < 0 || headY >= GRID_SIZE) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            // Check Self Collision
+            const selfCollided = snake.some((segment, index) => {
+                // Don't collide with head or last tail segment if it's moving away
+                return index !== 0 && segment.x === headX && segment.y === headY;
+            });
+
+            if (selfCollided && !isGhostActive) {
+                gameOver();
+                return;
+            }
+
+            // Move Snake
+            const newHead = { x: headX, y: headY };
+            snake.unshift(newHead);
+
+            // Check Food Collision
+            if (headX === food.x && headY === food.y) {
+                handleFoodConsumption();
+            } else {
+                // Remove tail if no food eaten
+                snake.pop();
+            }
+
+            // Update Powerup Durations
+            if (activeBuffs.speed > 0) activeBuffs.speed--;
+            if (activeBuffs.ghost > 0) activeBuffs.ghost--;
+
+            updateBuffsUI();
+
+            // Render current frame
+            render();
+
+            // Schedule next tick
+            let calculatedSpeed = currentSpeed;
+            if (activeBuffs.speed > 0) calculatedSpeed = Math.max(40, currentSpeed * 0.6);
+
+            gameLoopTimeout = setTimeout(gameTick, calculatedSpeed);
+        }
+
+        function handleFoodConsumption() {
+            const theme = THEMES[currentThemeIndex];
+            applesEaten++;
+
+            let pointsGained = 10;
+            let particleColor = theme.food;
+
+            if (food.type === 'apple') {
+                pointsGained = 10 * multiplier;
+                audio.playEatSound(false);
+                particleColor = theme.food;
+            } else if (food.type === 'gold') {
+                pointsGained = 35 * multiplier;
+                audio.playEatSound(true);
+                particleColor = theme.goldFood;
+            } else if (food.type === 'speed') {
+                pointsGained = 15;
+                activeBuffs.speed = 40; // 40 ticks
+                audio.playPowerupSound();
+                particleColor = theme.powerupSpeed;
+                showToast("SPEED BOOST ACTIVE!");
+            } else if (food.type === 'ghost') {
+                pointsGained = 15;
+                activeBuffs.ghost = 45; // 45 ticks
+                audio.playPowerupSound();
+                particleColor = theme.powerupGhost;
+                showToast("GHOST MODE ACTIVE!");
+            }
+
+            score += pointsGained;
+
+            // Level progression every 5 apples
+            if (applesEaten % 5 === 0) {
+                level++;
+                if (baseSpeed > 50) baseSpeed -= 5;
+                currentSpeed = baseSpeed;
+            }
+
+            createParticleBurst(food.x, food.y, particleColor, 18);
+            updateScoreUI();
+            spawnFood();
+        }
+
+        function render() {
+            const theme = THEMES[currentThemeIndex];
+
+            // 1. Clear background
+            ctx.fillStyle = theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Draw Subtle Grid
+            ctx.strokeStyle = theme.grid;
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL_SIZE, 0);
+                ctx.lineTo(i * CELL_SIZE, canvas.height);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(canvas.width, i * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // 3. Draw Food / Items
+            drawFood(theme);
+
+            // 4. Draw Snake
+            drawSnake(theme);
+
+            // 5. Update & Draw Particles
+            particles.forEach((p, index) => {
+                p.update();
+                p.draw(ctx);
+                if (p.alpha <= 0) particles.splice(index, 1);
+            });
+        }
+
+        function drawSnake(theme) {
+            const isGhost = activeBuffs.ghost > 0;
+            
+            snake.forEach((segment, idx) => {
+                const x = segment.x * CELL_SIZE;
+                const y = segment.y * CELL_SIZE;
+
+                const isHead = idx === 0;
+
+                ctx.save();
+
+                if (isHead) {
+                    // Head Styling
+                    ctx.fillStyle = theme.head;
+                    ctx.shadowColor = theme.head;
+                    ctx.shadowBlur = 15;
+
+                    // Rounded rect for head
+                    const radius = 6;
+                    ctx.beginPath();
+                    ctx.roundRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2, radius);
+                    ctx.fill();
+
+                    // Eyes
+                    ctx.fillStyle = '#000000';
+                    let eyeX1 = x + 5, eyeY1 = y + 5, eyeX2 = x + 13, eyeY2 = y + 5;
+
+                    if (direction.x === 1) { eyeX1 = x + 12; eyeX2 = x + 12; eyeY1 = y + 4; eyeY2 = y + 12; }
+                    else if (direction.x === -1) { eyeX1 = x + 4; eyeX2 = x + 4; eyeY1 = y + 4; eyeY2 = y + 12; }
+                    else if (direction.y === 1) { eyeX1 = x + 4; eyeX2 = x + 12; eyeY1 = y + 12; eyeY2 = y + 12; }
+                    else if (direction.y === -1) { eyeX1 = x + 4; eyeX2 = x + 12; eyeY1 = y + 4; eyeY2 = y + 4; }
+
+                    ctx.beginPath();
+                    ctx.arc(eyeX1, eyeY1, 2, 0, Math.PI * 2);
+                    ctx.arc(eyeX2, eyeY2, 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                } else {
+                    // Body Styling with Gradient
+                    const progress = idx / snake.length;
+                    ctx.globalAlpha = isGhost ? 0.45 : 1.0 - progress * 0.4;
+
+                    ctx.fillStyle = theme.bodyGradient[0];
+                    ctx.shadowColor = theme.head;
+                    ctx.shadowBlur = isGhost ? 10 : 4;
+
+                    const radius = 4;
+                    ctx.beginPath();
+                    ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, radius);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawFood(theme) {
+            const x = food.x * CELL_SIZE + CELL_SIZE / 2;
+            const y = food.y * CELL_SIZE + CELL_SIZE / 2;
+            const radius = (CELL_SIZE / 2) - 3;
+
+            ctx.save();
+
+            let color = theme.food;
+            if (food.type === 'gold') color = theme.goldFood;
+            if (food.type === 'speed') color = theme.powerupSpeed;
+            if (food.type === 'ghost') color = theme.powerupGhost;
+
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
+
+            // Pulsing animation effect
+            const pulse = Math.sin(Date.now() * 0.008) * 1.5;
+
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(2, radius + pulse), 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner core icon highlight
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x - 2, y - 2, Math.max(1, (radius + pulse) * 0.3), 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function updateScoreUI() {
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('highscore-display').innerText = highScore;
+            document.getElementById('level-display').innerText = level;
+            document.getElementById('multiplier-display').innerText = `${multiplier}x`;
+        }
+
+        function updateBuffsUI() {
+            const container = document.getElementById('active-buffs-list');
+            container.innerHTML = '';
+
+            let hasBuff = false;
+
+            if (activeBuffs.speed > 0) {
+                hasBuff = true;
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between text-xs font-bold text-cyan-400 bg-cyan-950/40 p-1.5 px-2.5 rounded-lg border border-cyan-500/30';
+                div.innerHTML = `<span><i class="fa-solid fa-bolt mr-1.5"></i>Speed</span><span>${activeBuffs.speed}</span>`;
+                container.appendChild(div);
+            }
+
+            if (activeBuffs.ghost > 0) {
+                hasBuff = true;
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between text-xs font-bold text-purple-400 bg-purple-950/40 p-1.5 px-2.5 rounded-lg border border-purple-500/30';
+                div.innerHTML = `<span><i class="fa-solid fa-ghost mr-1.5"></i>Ghost</span><span>${activeBuffs.ghost}</span>`;
+                container.appendChild(div);
+            }
+
+            if (!hasBuff) {
+                container.innerHTML = '<span class="text-xs text-slate-500 italic">No active power-ups</span>';
+            }
+        }
+
+        function gameOver() {
+            isRunning = false;
+            clearTimeout(gameLoopTimeout);
+            audio.playGameOverSound();
+
+            const isNewHigh = score > highScore;
+            if (isNewHigh) {
+                highScore = score;
+                localStorage.setItem('cybersnake_highscore', highScore.toString());
+            }
+
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-length').innerText = snake.length;
+            document.getElementById('final-apples').innerText = applesEaten;
+
+            const badge = document.getElementById('new-highscore-badge');
+            if (isNewHigh) badge.classList.remove('hidden');
+            else badge.classList.add('hidden');
+
+            document.getElementById('gameover-overlay').classList.remove('hidden');
+            updateScoreUI();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function handleKeyDown(e) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+
+            if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
+                togglePause();
+                return;
+            }
+
+            if (!isRunning || isPaused) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (direction.y === 0) { nextDirection = { x: 0, y: -1 }; audio.playTurnSound(); }
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (direction.y === 0) { nextDirection = { x: 0, y: 1 }; audio.playTurnSound(); }
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (direction.x === 0) { nextDirection = { x: -1, y: 0 }; audio.playTurnSound(); }
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (direction.x === 0) { nextDirection = { x: 1, y: 0 }; audio.playTurnSound(); }
+                    break;
+            }
+        }
+
+        function togglePause() {
+            if (!isRunning) return;
+            isPaused = !isPaused;
+
+            const overlay = document.getElementById('pause-overlay');
+            if (isPaused) {
+                overlay.classList.remove('hidden');
+            } else {
+                overlay.classList.add('hidden');
+                gameTick();
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start-overlay').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
+            document.getElementById('pause-overlay').classList.add('hidden');
+
+            initGame();
+            isRunning = true;
+            isPaused = false;
+            gameTick();
+        }
+
+        // Touch Swipe Handling on Canvas
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (!isRunning || isPaused) return;
+
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // Horizontal Swipe
+                if (Math.abs(dx) > 30) {
+                    if (dx > 0 && direction.x === 0) { nextDirection = { x: 1, y: 0 }; audio.playTurnSound(); }
+                    else if (dx < 0 && direction.x === 0) { nextDirection = { x: -1, y: 0 }; audio.playTurnSound(); }
+                }
+            } else {
+                // Vertical Swipe
+                if (Math.abs(dy) > 30) {
+                    if (dy > 0 && direction.y === 0) { nextDirection = { x: 0, y: 1 }; audio.playTurnSound(); }
+                    else if (dy < 0 && direction.y === 0) { nextDirection = { x: 0, y: -1 }; audio.playTurnSound(); }
+                }
+            }
+        }, { passive: true });
+
+        // Onscreen D-Pad Click Bindings
+        document.getElementById('btn-up').addEventListener('click', () => {
+            if (direction.y === 0) { nextDirection = { x: 0, y: -1 }; audio.playTurnSound(); }
+        });
+        document.getElementById('btn-down').addEventListener('click', () => {
+            if (direction.y === 0) { nextDirection = { x: 0, y: 1 }; audio.playTurnSound(); }
+        });
+        document.getElementById('btn-left').addEventListener('click', () => {
+            if (direction.x === 0) { nextDirection = { x: -1, y: 0 }; audio.playTurnSound(); }
+        });
+        document.getElementById('btn-right').addEventListener('click', () => {
+            if (direction.x === 0) { nextDirection = { x: 1, y: 0 }; audio.playTurnSound(); }
+        });
+
+        // Button Event Bindings
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+        document.getElementById('pause-btn').addEventListener('click', togglePause);
+
+        // Audio Toggle
+        document.getElementById('audio-toggle-btn').addEventListener('click', () => {
+            audio.enabled = !audio.enabled;
+            const icon = document.getElementById('audio-icon');
+            if (audio.enabled) {
+                icon.className = 'fa-solid fa-volume-high text-lg';
+                showToast("Sound Effects Enabled");
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-lg text-slate-500';
+                showToast("Sound Effects Muted");
+            }
+        });
+
+        // Theme Switcher
+        document.getElementById('theme-btn').addEventListener('click', () => {
+            currentThemeIndex = (currentThemeIndex + 1) % THEMES.length;
+            const theme = THEMES[currentThemeIndex];
+            showToast(`Theme: ${theme.name}`);
+            render();
+        });
+
+        // Mode Switchers
+        document.querySelectorAll('.mode-select-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.mode-select-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-teal-500/20', 'border-teal-400', 'text-teal-300');
+                    b.classList.add('bg-slate-800/60', 'border-slate-700', 'text-slate-400');
+                });
+                const selectedBtn = e.currentTarget;
+                selectedBtn.classList.add('active', 'bg-teal-500/20', 'border-teal-400', 'text-teal-300');
+                selectedBtn.classList.remove('bg-slate-800/60', 'border-slate-700', 'text-slate-400');
+
+                gameMode = selectedBtn.dataset.mode;
+            });
+        });
+
+        // Share Stats
+        document.getElementById('share-btn').addEventListener('click', () => {
+            const summary = `🐍 Cyber Snake Score: ${score} pts | Length: ${snake.length} | Level: ${level}`;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(summary);
+                showToast("Stats copied to clipboard!");
+            } else {
+                showToast("Score: " + score);
+            }
+        });
+
+        // Keyboard Event Listener
+        window.addEventListener('keydown', handleKeyDown);
+
+        // Resize Canvas Handling
+        function fitCanvas() {
+            const wrapper = document.querySelector('.game-canvas-wrapper');
+            if (wrapper) {
+                const size = Math.min(wrapper.clientWidth - 16, 580);
+                canvas.width = size;
+                canvas.height = size;
+                CELL_SIZE = canvas.width / GRID_SIZE;
+                render();
+            }
+        }
+
+        window.addEventListener('resize', fitCanvas);
+
+        // Window Load Initializer
+        window.onload = function() {
+            fitCanvas();
+            initGame();
+            render();
+        };
+    </script>
+</body>
+</html>
